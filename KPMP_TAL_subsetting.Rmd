@@ -1,0 +1,223 @@
+---
+title: "KPMP dataset TAL Subset"
+subtitle: "WashU-UCSD_HuBMAP_KPMP-Biopsy_10X-R_12032021.h5Seurat"
+author: "Xiao-Tong Su, Jonathan Nelson"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 4
+    toc_float: 
+      collapsed: false
+      smooth_scroll: false
+    number_sections: yes
+    theme: bootstrap
+    df_print: paged
+    code_folding: hide
+    highlight: pygments
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r packages, echo=T, error=FALSE, message=FALSE, warning=FALSE}
+
+if (!require("dplyr")) {install.packages("dplyr"); require("dplyr")}
+if (!require("Seurat")) {install.packages("Seurat"); require("Seurat")}
+if (!require("SeuratDisk")) {install.packages("SeuratDisk"); require("SeuratDisk")}
+if (!require("knitr")) {install.packages("knitr"); require("knitr")}
+if (!require("ggplot2")) {install.packages("ggplot2"); require("ggplot2")}
+if (!requireNamespace('BiocManager', quietly = TRUE)) {install.packages('BiocManager'); require("BiocManager")}
+if (!require("here")) {install.packages("here"); require("here")}
+if (!require("paletteer")) {install.packages("paletteer"); require("paletteer")} # color palette
+if (!require("grDevices")) {install.packages("grDevices"); require("grDevices")} # for grDevices palette
+if (!require("tidyverse")) {install.packages("tidyverse"); require("tidyverse")} # for data frame transformation
+if (!require("tibble")) {install.packages("tibble"); require("tibble")} # for table transformation
+if (!require("here")) {install.packages("here"); require("here")}
+
+here()
+
+#if (!requireNamespace("remotes", quietly = TRUE)) {
+#  install.packages("remotes")
+#}
+#remotes::install_github("mojaveazure/seurat-disk")
+
+```
+
+# Load KPMP objects
+
+## Dataset 3
+
+```{r data3, echo=TRUE, warning=FALSE, error=FALSE, message=FALSE, fig.align = 'center'}
+
+Sys.time()
+KPMP <- LoadH5Seurat(here("WashU-UCSD_HuBMAP_KPMP-Biopsy_10X-R_12032021.h5Seurat"))
+KPMP
+head(KPMP@meta.data)
+
+```
+
+subclass.l2
+```{r echo=TRUE, warning=FALSE, error=FALSE, message=FALSE, fig.align = 'center', fig.height=6, fig.width=12}
+
+Sys.time()
+Idents(KPMP) <- "subclass.l2"
+DimPlot(KPMP, 
+        reduction = "umap", 
+        label = T,
+        label.size = 3,
+        repel = T, 
+        raster = F,
+        cols = paletteer_c("grDevices::Dynamic", n = 77)) #Rasterizing points since number of points exceeds 100,000. To disable this behavior set `raster=FALSE`
+
+```
+
+```{r echo=TRUE, warning=FALSE, error=FALSE, message=FALSE, fig.align = 'center', fig.height=4, fig.width=18}
+
+VlnPlot(KPMP, 
+        features = c("nCount_RNA", "nFeature_RNA", "percent.er", "percent.mt"),
+        stack = TRUE, 
+        flip = TRUE,
+        pt.size = 0,
+        fill.by = "ident") +
+  theme(legend.position = "none", 
+              plot.title = element_text(hjust = 0.5),
+              axis.text.x = element_text(angle = 45, hjust = .8),
+              axis.title.x = element_blank()) + 
+  stat_summary(fun = median,
+               geom = "crossbar",
+               width = 0.3,
+               size = 0.1,
+               position = position_dodge(width = 0.5))
+
+```
+
+subclass.l1
+```{r echo=TRUE, warning=FALSE, error=FALSE, message=FALSE, fig.align = 'center', fig.height=6, fig.width=12}
+
+Idents(KPMP) <- "subclass.l1"
+DimPlot(KPMP, 
+        reduction = "umap", 
+        label = T,
+        label.size = 3,
+        repel = T, 
+        raster = F,
+        cols = paletteer_c("grDevices::Dynamic", n = 77)) #Rasterizing points since number of points exceeds 100,000. To disable this behavior set `raster=FALSE`
+
+```
+
+```{r echo=TRUE, warning=FALSE, error=FALSE, message=FALSE, fig.align = 'center', fig.height=4, fig.width=18}
+
+VlnPlot(KPMP, 
+        features = c("nCount_RNA", "nFeature_RNA", "percent.er", "percent.mt"),
+        stack = TRUE, 
+        flip = TRUE,
+        pt.size = 0,
+        fill.by = "ident") +
+  theme(legend.position = "none", 
+              plot.title = element_text(hjust = 0.5),
+              axis.text.x = element_text(angle = 45, hjust = .8),
+              axis.title.x = element_blank()) + 
+  stat_summary(fun = median,
+               geom = "crossbar",
+               width = 0.3,
+               size = 0.1,
+               position = position_dodge(width = 0.5))
+
+```
+
+class
+```{r echo=TRUE, warning=FALSE, error=FALSE, message=FALSE, fig.align = 'center', fig.height=6, fig.width=12}
+
+Idents(KPMP) <- "class"
+DimPlot(KPMP, 
+        reduction = "umap", 
+        label = T,
+        label.size = 3,
+        repel = T, 
+        raster = F,
+        cols = paletteer_c("grDevices::Dynamic", n = 77)) #Rasterizing points since number of points exceeds 100,000. To disable this behavior set `raster=FALSE`
+
+```
+
+```{r echo=TRUE, warning=FALSE, error=FALSE, message=FALSE, fig.align = 'center', fig.height=4, fig.width=18}
+
+VlnPlot(KPMP, 
+        features = c("nCount_RNA", "nFeature_RNA", "percent.er", "percent.mt"),
+        stack = TRUE, 
+        flip = TRUE,
+        pt.size = 0,
+        fill.by = "ident") +
+  theme(legend.position = "none", 
+              plot.title = element_text(hjust = 0.5),
+              axis.text.x = element_text(angle = 45, hjust = .8),
+              axis.title.x = element_blank()) + 
+  stat_summary(fun = median,
+               geom = "crossbar",
+               width = 0.3,
+               size = 0.1,
+               position = position_dodge(width = 0.5))
+
+```
+
+## Add participants meta data
+
+## Add Clinical information into meta.data
+
+```{r, echo=TRUE, warning=FALSE, error=FALSE, message=FALSE, fig.align = 'center'}
+
+head(KPMP@meta.data)
+
+meta <- read.csv(here("OpenAccessClinicalData.csv"))
+
+df <- FetchData(KPMP, "specimen_id") %>% rownames_to_column(var = "CellID")
+
+df <- left_join(df, meta, by = c("specimen_id" = "Participant.ID")) %>% column_to_rownames(var = "CellID")
+
+KPMP <- AddMetaData(KPMP, df)
+
+head(KPMP@meta.data)
+
+unique(KPMP@meta.data$Enrollment.Category)
+
+KPMP@meta.data$Enrollment.Category <- factor(KPMP@meta.data$Enrollment.Category, levels = c("Healthy Reference", "AKI", "CKD"))
+
+```
+
+## Subset TAL
+
+```{r echo=TRUE, warning=FALSE, error=FALSE, message=FALSE, fig.align = 'center'}
+
+KPMP.TAL <- subset(x = KPMP, subset = subclass.l1 == "TAL")
+
+DimPlot(KPMP.TAL, 
+        reduction = "umap", 
+        label = T,
+        label.size = 3,
+        repel = T, 
+        raster = F,
+        group.by = "subclass.l2")
+
+DimPlot(KPMP.TAL, 
+        reduction = "umap", 
+        label = T,
+        label.size = 3,
+        repel = T, 
+        raster = F,
+        group.by = "Enrollment.Category") 
+
+saveRDS(KPMP.TAL, here("KPMP.TAL_2.rds"))
+
+```
+
+# System information
+
+```{r echo=TRUE, warning=FALSE, error=FALSE, message=FALSE, fig.align = 'center'}
+
+Sys.time()
+sessionInfo()
+
+```

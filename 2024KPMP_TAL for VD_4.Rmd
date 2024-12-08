@@ -1,0 +1,400 @@
+---
+title: "KPMP TAL Data"
+subtitle: "Exploration of KRT19 Expression"
+author: "Jonathan Nelson"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 4
+    toc_float: 
+      collapsed: false
+      smooth_scroll: false
+    number_sections: yes
+    theme: bootstrap
+    df_print: paged
+    code_folding: hide
+    highlight: pygments
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r packages, echo=T, error=FALSE, message=FALSE, warning=FALSE}
+
+if (!require("dplyr")) {install.packages("dplyr"); require("dplyr")}
+if (!require("Seurat")) {install.packages("Seurat"); require("Seurat")}
+if (!require("SeuratDisk")) {install.packages("SeuratDisk"); require("SeuratDisk")}
+if (!require("knitr")) {install.packages("knitr"); require("knitr")}
+if (!require("ggplot2")) {install.packages("ggplot2"); require("ggplot2")}
+if (!requireNamespace('BiocManager', quietly = TRUE)) {install.packages('BiocManager'); require("BiocManager")}
+if (!require("here")) {install.packages("here"); require("here")}
+if (!require("paletteer")) {install.packages("paletteer"); require("paletteer")} # color palette
+if (!require("grDevices")) {install.packages("grDevices"); require("grDevices")} # for grDevices palette
+if (!require("tidyverse")) {install.packages("tidyverse"); require("tidyverse")} # for data frame transformation
+if (!require("tibble")) {install.packages("tibble"); require("tibble")} # for table transformation
+if (!require("geneName")) {install.packages("geneName"); require("geneName")}
+if (!require("ggrepel")) {install.packages("ggrepel"); require("ggrepel")}
+if (!require("gghighlight")) {install.packages("gghighlight"); require("gghighlight")}
+if (!require("ggpmisc")) {install.packages("ggpmisc"); require("ggpmisc")}
+if (!require("ggupset")) {install.packages("ggupset"); require("ggupset")}
+if (!require("RColorBrewer")) {install.packages("RColorBrewer"); require("RColorBrewer")}
+if (!require("viridis")) {install.packages("viridis"); require("viridis")}
+
+library(SeuratData)
+library(openxlsx)
+library(gplots)
+library(ggvenn)
+
+```
+
+
+# Introduction
+
+This file was made to explore the expression of KRT19 in TAL snRNASeq data from the KPMP 2021 snRNAseq dataset for Vidhi Dalal.
+
+# 2021 KPMP Object
+
+## Load KPMP object (2021 data file)
+
+This is the KPMP object that was originally formatted by Xiao-Tong Su (manually annotated meta-data) and then subsetted by Jessica Bahena Lopez for her TAL heterogenity manuscript. 
+
+```{r, echo=TRUE, warning=FALSE, error=FALSE, message=FALSE, fig.align = 'center'}
+
+KPMP.TAL <- readRDS(here("KPMP.TAL_2.rds")) 
+
+head(KPMP.TAL@meta.data)
+
+KPMP.TAL@meta.data$subclass.l2 <- factor(KPMP.TAL@meta.data$subclass.l2, levels = c("C-TAL", "M-TAL", "aTAL1", "aTAL2", "dC-TAL", "dM-TAL", "MD"))
+
+
+DimPlot(KPMP.TAL, group.by = "subclass.l1")
+
+DimPlot(KPMP.TAL, group.by = "subclass.l2", label = T)
+
+KPMP.TAL
+
+```
+
+## VlnPlot -> Heatmap
+
+```{r, echo=TRUE, warning=FALSE, error=FALSE, message=FALSE, fig.align = 'center', fig.height=10}
+
+gene_list <- list(c("SLC12A1", "CRYAB", "KRT19", "MMP7", "CLU", "SPP1"))
+
+gene_unlist <- unlist(c("SLC12A1", "CRYAB", "KRT19", "MMP7", "CLU", "SPP1"))
+
+VlnPlot(KPMP.TAL, features = gene_unlist, group.by = "subclass.l2", pt.size = 0.1)
+
+```
+
+```{r, echo=TRUE, warning=FALSE, error=FALSE, message=FALSE, fig.align = 'center', fig.width=10}
+
+# Create a dataframe with the average expression for the list of genes
+
+df <- AverageExpression(object = KPMP.TAL, features = gene_unlist, group.by = 'subclass.l2')$RNA
+
+df
+
+# Calculate Z score for each row (could skip if you want raw expression)
+
+df <- t(scale(t(df)))
+
+# convert df to tidy format
+
+df_tidy <- df %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Gene") %>%
+  pivot_longer(cols = -Gene, names_to = "subclass.l2", values_to = "Expression")
+               
+# Graph with geom_tile
+
+f1 <- ggplot(df_tidy, aes(x = subclass.l2, y = Gene, fill = Expression)) +
+  geom_tile()
+
+f1
+
+# Make pretty with ggplot2
+
+f2 <- ggplot(df_tidy, aes(x = subclass.l2, y = Gene, fill = Expression)) +
+  geom_tile() +
+  scale_fill_distiller(palette = "RdYlBu") +
+  theme_minimal()
+
+f2
+
+# Reorder the genes by factoring
+
+df_tidy$Gene <- factor(df_tidy$Gene, levels = c("CRYAB",  "MMP7", "CLU", "SPP1", "KRT19","SLC12A1"))
+
+# Reorder sublcass.l2 by factoring
+
+df_tidy$subclass.l2 <- factor(df_tidy$subclass.l2, levels = c("C-TAL", "M-TAL", "aTAL1", "aTAL2", "dC-TAL", "dM-TAL", "MD"))
+
+```
+
+
+
+## DimPlots of TAL by groups
+
+```{r, echo=TRUE, warning=FALSE, error=FALSE, message=FALSE, fig.align = 'center', fig.width=10}
+
+
+KPMP.TAL@meta.data$Enrollment.Category <- factor(KPMP.TAL@meta.data$Enrollment.Category, levels = c("Healthy Reference", "AKI", "CKD"))
+
+DimPlot(KPMP.TAL, group.by = "subclass.l2", label = T, split.by = "Enrollment.Category")
+
+KPMP.TAL@meta.data
+
+
+```
+
+```{r, echo=TRUE, warning=FALSE, error=FALSE, message=FALSE, fig.align = 'center', fig.width=15}
+
+
+KPMP.TAL@meta.data$Proteinuria..mg...Binned. <- factor(KPMP.TAL@meta.data$Proteinuria..mg...Binned., levels = c("<150 mg/g cr", "150 to <500 mg/g cr", "500 to <1000 mg/g cr", ">=1000 mg/g cr", ""))
+
+DimPlot(KPMP.TAL, group.by = "subclass.l2", label = T, split.by = "Proteinuria..mg...Binned.")
+
+```
+
+
+## FeaturePlots of TAL for KRT19
+
+```{r, echo=TRUE, warning=FALSE, error=FALSE, message=FALSE, fig.align = 'center'}
+
+FeaturePlot(KPMP.TAL, "KRT19", order = T)
+
+```
+
+
+```{r, echo=TRUE, warning=FALSE, error=FALSE, message=FALSE, fig.align = 'center', fig.width=10}
+
+FeaturePlot(KPMP.TAL, "KRT19", split.by = "Enrollment.Category", order = T)
+
+```
+
+```{r, echo=TRUE, warning=FALSE, error=FALSE, message=FALSE, fig.align = 'center', fig.width=15}
+
+
+FeaturePlot(KPMP.TAL, "KRT19", split.by = "Proteinuria..mg...Binned.", order = T)
+
+```
+
+
+## VlnPlots of TAL for KRT19
+
+```{r, echo=TRUE, warning=FALSE, error=FALSE, message=FALSE, fig.align = 'center'}
+
+VlnPlot(KPMP.TAL, "KRT19", group.by = "Enrollment.Category")
+
+VlnPlot(KPMP.TAL, "KRT19", group.by = "Proteinuria..mg...Binned.")
+
+VlnPlot(KPMP.TAL, "KRT19", group.by = "subclass.l2")
+
+```
+
+## DotPlots of TAL for KRT19
+
+### Scaled
+
+```{r, echo=TRUE, warning=FALSE, error=FALSE, message=FALSE, fig.align = 'center', fig.width=6}
+
+DotPlot(
+  KPMP.TAL,
+  assay = NULL,
+  features = "KRT19",
+  cols = c("lightgrey", "blue"),
+  col.min = -2.5,
+  col.max = 2.5,
+  dot.min = 0,
+  dot.scale = 6,
+  idents = NULL,
+  group.by = "Enrollment.Category",
+  split.by = NULL,
+  cluster.idents = FALSE,
+  scale = T,
+  scale.by = "radius",
+  scale.min = NA,
+  scale.max = NA
+)
+
+
+DotPlot(
+  KPMP.TAL,
+  assay = NULL,
+  features = "KRT19",
+  cols = c("lightgrey", "blue"),
+  col.min = -2.5,
+  col.max = 2.5,
+  dot.min = 0,
+  dot.scale = 6,
+  idents = NULL,
+  group.by = "subclass.l2",
+  split.by = NULL,
+  cluster.idents = FALSE,
+  scale = T,
+  scale.by = "radius",
+  scale.min = NA,
+  scale.max = NA
+)
+
+```
+
+
+### Unscaled
+
+```{r, echo=TRUE, warning=FALSE, error=FALSE, message=FALSE, fig.align = 'center', fig.width=6}
+
+DotPlot(
+  KPMP.TAL,
+  assay = NULL,
+  features = "KRT19",
+  cols = c("lightgrey", "blue"),
+  col.min = -2.5,
+  col.max = 2.5,
+  dot.min = 0,
+  dot.scale = 6,
+  idents = NULL,
+  group.by = "Enrollment.Category",
+  split.by = NULL,
+  cluster.idents = FALSE,
+  scale = F,
+  scale.by = "radius",
+  scale.min = NA,
+  scale.max = NA
+)
+
+DotPlot(
+  KPMP.TAL,
+  assay = NULL,
+  features = "KRT19",
+  cols = c("lightgrey", "blue"),
+  col.min = -2.5,
+  col.max = 2.5,
+  dot.min = 0,
+  dot.scale = 6,
+  idents = NULL,
+  group.by = "subclass.l2",
+  split.by = NULL,
+  cluster.idents = FALSE,
+  scale = F,
+  scale.by = "radius",
+  scale.min = NA,
+  scale.max = NA
+)
+
+```
+
+
+# Correlating KRT19 cells with VD New TAL
+
+## Add meta.data column called "KRT19status" depending on whether a cell expressed KRT19 or not
+
+```{r echo=TRUE, warning=FALSE, error=FALSE, message=FALSE, fig.align = 'center'}
+
+KPMP.TAL@meta.data$KRT19status <- ifelse(GetAssayData(KPMP.TAL, assay = "RNA", slot = "data")["KRT19", ] > 0, "yes", "no")
+
+DimPlot(KPMP.TAL, group.by = "KRT19status", label = T)
+
+VlnPlot(KPMP.TAL, "KRT19", assay = "RNA", group.by = "KRT19status")
+
+Idents(KPMP.TAL) <- "KRT19status"
+
+DimPlot(KPMP.TAL)
+
+KRT19.DEGs <- FindMarkers(KPMP.TAL, ident.1 = "yes", ident.2 = "no")
+
+KRT19.DEGs
+
+```
+```{r, echo=TRUE, warning=FALSE, error=FALSE, message=FALSE, fig.align = 'center', fig.width=10}
+
+VD.DEGs <- read.xlsx(here("DEG_NewTAL_vs_TAL.xlsx"))
+
+# change x1 to "gene"
+
+VD.DEGs <- VD.DEGs %>% rename(gene = X1)
+
+x.markers <- VD.DEGs
+
+
+x.markers_tb <- x.markers %>% data.frame() %>% filter(p_val_adj < 0.05) %>% filter(abs(avg_log2FC) > .5) %>%  as_tibble()
+
+top6 <- list(head(x.markers_tb$gene))
+
+x.markers_tb_H <- mousegnameConverter(x.markers_tb, "gene")
+
+x.markers_tb_H = x.markers_tb_H[order(x.markers_tb_H[,"avg_log2FC"], decreasing = TRUE),]
+x.markers_tb_H
+
+# move the KRT19.DEG rownames to be a column called "gene"
+
+y.markers <- KRT19.DEGs
+
+y.markers_tb <- y.markers %>%
+  data.frame() %>%
+  rownames_to_column(var="gene") %>%
+  filter(p_val_adj < 0.05) %>%
+  filter(abs(avg_log2FC) > .5) %>% 
+  as_tibble()
+
+    #X-Y DEGs Intersection Table
+    
+    xy.comp.TAL <- inner_join(x.markers_tb_H, y.markers_tb, by = "gene")
+    
+    xy.comp.TAL 
+    
+    #Set Range for Far Right Data Points
+    df.upper <- subset(xy.comp.TAL, avg_log2FC.x > -.32 & avg_log2FC.y > -.32)
+    #Set Range for Far Left Data Points
+    df.lower <- subset(xy.comp.TAL, avg_log2FC.x < 0.32 & avg_log2FC.y < .32)
+    
+    xy.comp.TAL.plot <- ggplot(xy.comp.TAL, aes(x = avg_log2FC.x, y = avg_log2FC.y, label=gene)) +
+      theme_classic() +
+      geom_point(
+        color=dplyr::case_when(
+          (xy.comp.TAL$avg_log2FC.x > 1 & xy.comp.TAL$avg_log2FC.y > 1) ~ "#1b9e77", #sets color for df.upper points
+          (xy.comp.TAL$avg_log2FC.x < -1 & xy.comp.TAL$avg_log2FC.y < -1) ~ "#d95f02", #sets color for df.lower points
+          TRUE ~ "black")) +
+      geom_text_repel(data=rbind(df.upper, df.lower),
+                      segment.sixy.comp.TALe  = 0.2, #<--!! what is this?? !!--
+                      segment.color = "grey50") +
+      geom_smooth (method=lm) +
+      labs(
+        title = paste("Correlation of Log2FC Values of DEGs from",
+                      "Mouse New TAL", "and",
+                      "KPMP KRT19+ Cells", sep = " "), 
+        x = paste("Average log2FC", "Mouse"), 
+        y = paste("Average log2FC", "KPMP")
+      ) +
+      stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")),
+                   label.x.npc = "left", label.y.npc = 0.90, #set the position of the eq
+                   rr.digits = 3)
+    
+    print(xy.comp.TAL.plot)
+    
+    print(nrow(xy.comp.TAL))
+
+```
+
+## Corerelation Test
+
+```{r, echo=TRUE, warning=FALSE, error=FALSE, message=FALSE, fig.align = 'center'}
+
+cor_result <- cor.test(xy.comp.TAL$avg_log2FC.x, xy.comp.TAL$avg_log2FC.y, method = "pearson")
+cor_result
+
+```
+
+
+```{r echo=TRUE, warning=FALSE, error=FALSE, message=FALSE, fig.align = 'center'}
+
+Sys.time()
+
+sessionInfo()
+
+```
